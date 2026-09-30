@@ -1,5 +1,6 @@
 // ============================================================================
-// aes_core.v  (Phase 6: scan-retrofitted)
+// aes_core_def.v  (Paper 2 defense variants of aes_core.v; header below is
+//                  aes_core.v's Phase 6 header, kept for reference)
 //
 // Purpose:
 //   Iterative (one-round-per-cycle) AES-128 encryption engine.

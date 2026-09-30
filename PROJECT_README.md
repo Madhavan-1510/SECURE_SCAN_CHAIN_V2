@@ -6,7 +6,14 @@ see §12) and the `SecureScan-RV_Paper2_README_PRD_v2.md` upload (kept only as
 the original planning changelog — its content is folded in here, current as
 of the date below).
 
-> **Session update (30 Sep 2026, second Phase 5 session) -- read this first.**
+> **Session update (30 Sep 2026, third Phase 5 session, this repo) -- read this first.**
+> Project now lives in git (`RTL/`, `TB/`, `CONSTRAINTS/` layout). Everything below was run here with Icarus 12.0 on the project RTL as uploaded:
+> (1) `run_regression.sh` rewritten for the `RTL/`+`TB/` layout (the copy in the upload was still the old flat-directory 16-tb script). Full run of the 24 previously gated tbs: **`SUMMARY passed=24 failed=0 total=24`**; `tb_attack_defenses` PASS lines identical to the saved `tb_attack_defenses.log` (58 PASS). Gate negative control: a missing tb reports MISSING and exits 1.
+> (2) NEW `secure_scan_rv_top_def.v`: CPU + AES top with `DEFENSE_LEVEL` (0 = original datapath, 1-5 = `_def` variants) and `LOCK_VERSION` (0 none, 1 v1, 2 `scan_lock_controller_v2`). **L1 is now wired into a top-level** (simulation only; not synthesized).
+> (3) NEW `tb_cpu_driven_aes_def.v`: real-CPU KAT on all 18 DEFENSE_LEVEL x LOCK_VERSION configs + locked/unlocked scan read + v2 lockout at top level: **144 PASS / 0 FAIL, 18/18 configs**. NEW `tb_scan_resume_def.v`: the unchanged 20-case resume sweep on L1-L5: **100/100 OK**. Each has a mutant that it catches (s5g).
+> (4) Legacy `secure_scan_rv_top.v` deleted. Line-by-line read of `*_def.v`: no functional defect found, 4 notes (s5g). Final 26-tb result: s5g.
+>
+> **Previous session update (30 Sep 2026, second Phase 5 session):**
 > Phase 5 is still IN PROGRESS. Measured this session (Icarus 12.0, single-core sandbox; every result below was produced by running the project RTL, and the G2/G3/G2R probe was re-run and matched the saved `probe3.log` line for line):
 > (1) `tb_attack_defenses.v` now has 7 columns (G0, G1, G4 locked, G4 unlocked, **G2, G3, G2R locked**) and **58 asserted checks, 0 fail**. Goldens for G2/G3/G2R injection cases were checked against pycryptodome.
 > (2) New `tb_def_functional.v`: KAT bit-exact and back-to-back KAT for all five `_def` variants, locked and unlocked (10 cells PASS).
@@ -110,13 +117,14 @@ the chain.
 | `scan_cell.v`, `scan_chain.v` | 1-bit scan flip-flop, parameterized register | Present, verified |
 | `scan_lock_controller.v` | 32-bit static-code lock, fail-safe locked | Present. No attempt limiter. Public default code `32'hDEC0DED1` (hardcoded, verified present in RTL). |
 | `secure_scan_rv_top_v2.v` | Real top: CPU + AES + memory + lock; `SECURE_SCAN` param | Present, compiles |
-| `secure_scan_rv_top.v` | Legacy v1 top, no scan/lock ports | Excluded from my working copy and regression; **delete from the owner's project tree** |
+| `secure_scan_rv_top.v` | Legacy v1 top, no scan/lock ports | **Deleted** (30 Sep 2026, third Phase 5 session); nothing referenced it |
+| `secure_scan_rv_top_def.v` | **NEW.** Same CPU/AES/memory as `_v2`, plus `DEFENSE_LEVEL` (0 = original `aes_pcpi`, 1-5 = `aes_pcpi_def`) and `LOCK_VERSION` (0 none, 1 v1, 2 `scan_lock_controller_v2` with `secret_i`/`secret_valid_i`/`lockout_o`). `_v2` left untouched as the Paper 1 baseline. | PASS via `tb_cpu_driven_aes_def` (s5g). Not synthesized |
 | `tb_sensitivity.v` + `phase3/analyze_sensitivity.py` | Phase 3 sensitivity map (645 bits x 16 capture points x 32 random pairs), scan-equivalence check, F5/F6 direct checks | **NEW, PASS (Icarus 12.0). Outputs in `phase3/`:** `sens_perbit_classified.csv`, `sens_segment_summary.txt`, `sens_direct_checks.txt`, `sens_heatmap.png`, raw `sens_bits.csv`, `kat_snaps.txt` |
-| `run_regression.sh` | One-command Icarus regression, now 21 gated tbs (16 pre-existing + `tb_attack_bruteforce`, `tb_lock_v2`, `tb_scan_lock_v2`, `tb_attack_modeswitch`, `tb_attack_matrix`) | **21/21 PASS, re-run 29 Sep 2026 (Icarus 12.0, ~9 min wall).** `tb_attack_probe.v` is informational, not gated |
+| `run_regression.sh` | One-command Icarus regression for the `RTL/`+`TB/` layout, **26 gated tbs** (list in s5g). Each tb runs in its own dir under `.reg_work/`; `JOBS=N` for parallel runs; optional tb names as arguments | Result of the full run: s5g. `tb_attack_probe.v` and `probe_g235.v` are informational, not gated |
 | `scan_attack_harness.v`, `fpga_top.v`, `io_conditioning.v` | Read-attack demo + board I/O front-end | Present, pass |
 | `board_top.v`, `lock_switch_ctrl.v`, `scan_dump_controller.v`, UART/7-seg/reset support | Board demo | Present, pass |
-| `constraints.xdc` | Boolean Board pins | Present |
-| 13 `tb_*.v` testbenches | Full regression | **Confirmed 13, all pass** |
+| `CONSTRAINTS/constraints.xdc` | Boolean Board pins | Present |
+| 13 original Paper 1 `tb_*.v` testbenches | Part of the regression | All pass (s5g) |
 | `tb_attack_probe.v` | Paper 2's go/no-go probe (A3/A6) | **Present, independently re-run, results confirmed — see §5** |
 | `tb_zeroize.v` | F3/A6 regression: exact 645-bit model comparison, locked vs unlocked, 10 shift counts | **NEW, PASS (Icarus 12.0): 97 PASS / 0 FAIL** |
 | `tb_attack_write_inject.v` | A3 regression: region-A model sweep (14 shift counts x plaintext LSB 0/1), F8 cases A/B, golden ciphertext | **NEW, PASS in owner's Vivado run and in Icarus 12.0 (via `run_regression.sh`).** `check()` width fixed (§5b) |
@@ -137,14 +145,16 @@ the chain.
 | `tb_attack_defenses.v` | Attack x design matrix, 7 columns: G0, G1, G4 locked, G4 unlocked (negative control), G2, G3, G2R locked. A1, A1b, A2, A2b, A2c, A3, A3b, A3c, A6, A6@1, A7, A8, A9. | **PASS, 58 checks.** Sim time is minutes on a single-core sandbox (about 87 s earlier on a faster one). Gated. |
 | `tb_defense_equiv.v` | Lockstep: L1-L5 unlocked vs undefended `aes_pcpi`; L1 locked vs original locked. 900 random cycles, fixed seed. | PASS. Gated. |
 | `tb_def_functional.v` | **NEW.** All five `_def` variants x {locked, unlocked}: KAT bit-exact, second KAT with no reset, plus an informational scan-session-then-fresh-KAT case. | **PASS, 10/10 cells.** Gated. |
-| `probe_g235.v`, `probe3.log` | Print-only measurement probe over all 7 columns and the log that G2/G3/G2R assertions were written from. | Re-run this session, output identical to the saved log. Informational, not gated. |
-| `mutate.py` | Earlier session's mutation runner for the first 12 mutants. | **Not present in the project snapshot**; mutants for the new columns were applied by `sed` this session (s5f). |
+| `probe_g235.v`, `probe3.log` | Print-only measurement probe over all 7 columns and the log that G2/G3/G2R assertions were written from. | Re-run in the second Phase 5 session, output identical to the saved log. `probe_g235.v` is in this upload; `probe3.log` is not. Informational, not gated. |
+| `mutate.py` | Earlier session's mutation runner for the first 12 mutants. | Present in this upload. Written for a flat directory (all `.v` in one folder); see s5g for how it was run here. |
+| `tb_cpu_driven_aes_def.v` | **NEW.** Real-CPU program on `secure_scan_rv_top_def`, all 18 DEFENSE_LEVEL x LOCK_VERSION configs | **PASS, 144 checks.** Gated (s5g) |
+| `tb_scan_resume_def.v` | **NEW.** `tb_scan_resume`'s 20 cases on L1-L5 (generated from the original; only the DUT, messages and banner changed) | **PASS, 100/100 cases.** Gated (s5g) |
 
-`run_regression.sh` note: the copy that was in the project folder was the old 16-test script. It has been **rebuilt this session with 24 gated tbs** (16 + `tb_attack_bruteforce`, `tb_lock_v2`, `tb_scan_lock_v2`, `tb_attack_modeswitch`, `tb_attack_matrix`, `tb_attack_defenses`, `tb_defense_equiv`, `tb_def_functional`). It requires a PASS banner and no failure marker, and counts a missing or uncompilable tb as FAIL. Put this version in the project folder; the earlier "21/21" and "23/23" figures came from scripts that were not kept.
+`run_regression.sh` note: the copy in the uploaded project was again the old flat-directory 16-test script (the 24-tb version from the previous session did not make it into the upload). It was rewritten in this repo for the `RTL/`+`TB/` layout and now gates 26 tbs. It requires a PASS banner and no failure marker, and counts a missing, uncompilable or timed-out tb as FAIL. It is now under git, so it should not be lost again.
 
-Project-snapshot discrepancies: `constraints.xdc` and the `phase3/` outputs listed in the table above are not in this project snapshot, and `secure_scan_rv_top.v` (legacy) is still present. The script excludes it.
+Project-snapshot discrepancies (this upload): the `phase3/` outputs listed above are not in the upload (`tb_sensitivity` regenerates `sens_bits.csv` and `kat_snaps.txt` into `.reg_work/tb_sensitivity/`; `analyze_sensitivity.py` and the heat map are not in the upload), `probe3.log` is not in the upload, and `tb_scan_lock_v2.v.vivado_stub` is not in the upload. `constraints.xdc` is present under `CONSTRAINTS/`.
 
-**Not yet written (Paper 2 deliverables):** formal `.sby` files, Vivado sweep scripts, G2/G3 locked-behaviour testbenches, wiring of `scan_lock_controller_v2` into a top-level. (The planned `aes_core_g2.v`/`aes_pcpi_g2.v` names were replaced by the `*_def.v` parameterized variants.)
+**Not yet written (Paper 2 deliverables):** formal `.sby` files, Vivado sweep scripts, T1 testability metric, synthesis of `secure_scan_rv_top_def`, a board top using `scan_lock_controller_v2`. (The planned `aes_core_g2.v`/`aes_pcpi_g2.v` names were replaced by the `*_def.v` parameterized variants.)
 
 ---
 
@@ -324,8 +334,31 @@ Why G and H survived (measured, then fixed): `fsm_state` is fed by `block_stage[
 - `tb_defense_equiv` compares L1-L5 unlocked and L1 locked only, one seed, 900 cycles. It is not exhaustive equivalence and does not compare locked L2-L5.
 - Mutation coverage is 12 hand-picked bugs, not exhaustive. A passing tb here is evidence, not proof, and not a formal result.
 - The `*_def.v` RTL was regenerated (provenance above); the two tbs pass against it, not against a separately reviewed original.
-- Functional checks per variant: `tb_def_functional.v` now shows KAT bit-exact and a back-to-back KAT for L1-L5, locked and unlocked. Its scan-session case is a single 60-shift session, informational only, and is NOT the 20-case `tb_scan_resume` sweep. `tb_scan_resume` (20 cases) and `tb_cpu_driven_aes` were NOT run on any `_def` variant (the latter needs a top-level with a `DEFENSE_LEVEL` option).
+- Functional checks per variant: `tb_def_functional.v` shows KAT bit-exact and a back-to-back KAT for L1-L5, locked and unlocked. The 20-case `tb_scan_resume` sweep and the CPU-driven program now also pass on every variant (s5g).
 - No Vivado numbers exist for any defense variant.
+
+### 5g. Phase 5 (continued) -- top-level wiring, resume and CPU-driven checks per variant (Icarus 12.0, 30 Sep 2026, third session)
+
+**Baseline re-run before any change.** Upload imported into git unmodified (first commit). `run_regression.sh` rewritten for the `RTL/`+`TB/` layout and run on the 24 previously gated tbs with `JOBS=4`: `SUMMARY passed=24 failed=0 total=24`, 6 min 35 s wall. `tb_attack_defenses`: 58 PASS lines, identical line for line to the saved `tb_attack_defenses.log`.
+
+**`secure_scan_rv_top_def.v` (new).** CPU, memory and PCPI wiring copied from `secure_scan_rv_top_v2.v`; the AES instance is `aes_pcpi` (DEFENSE_LEVEL=0) or `aes_pcpi_def #(DEFENSE_LEVEL)`; the lock is none / v1 / v2 by `LOCK_VERSION`. v2's `secret_i`, `secret_valid_i`, `lockout_o` are top-level ports. `_v2` is unchanged, so Paper 1 Vivado numbers still refer to the same file.
+
+**`tb_cpu_driven_aes_def.v` (new; 144 PASS / 0 FAIL, 18/18 configs, 3 min 23 s).** The unchanged hand-assembled program from `tb_cpu_driven_aes.v` on all DEFENSE_LEVEL 0-5 x LOCK_VERSION 0-2, v2 scaled to MAX_FAILS=3, LOCKOUT=BOOT_DELAY=400 cycles. Per config: C1 CPU-driven KAT from reset with the lock in its reset state (`locked`=1 for v1/v2); C2 645-shift scan read after the program: KAT key absent from the 646-sample stream (any alignment, either bit order) when locked, present when LOCK_VERSION=0; C3 v1 rejects a wrong code; v2 ignores/rejects `DEC0DED1`, 3 wrong codes after the boot delay set `lockout_o`, the real secret is rejected during lockout, lockout expires; C4 correct code unlocks; C5 resetn-only pulse (lock domain untouched), program re-run: KAT, still unlocked; C6 unlocked scan read shows the key (positive control for C2).
+Mutant (top connects `.locked(1'b0)` into `aes_pcpi_def` while a lock exists): **caught, exactly the 10 expected configs fail C2** (DL 1-5 x LV 1-2); the 8 untouched configs still pass.
+
+**`tb_scan_resume_def.v` (new; 100/100 cases OK, 4 min 47 s).** Generated from `tb_scan_resume.v` by script; only the DUT (`aes_pcpi_def #(DL)`), the case messages and the banner changed. Same v1 lock, same freeze point (ENCRYPT + 6 cycles), shift counts 0, 1, 127, 255, 256, 388, 517, 644, 645, 1290, unlocked and locked, no reset between scan exit and the next KAT: all 20 cases OK for each of L1-L5.
+Mutant (the `core_seen_running` stale-done fix removed from `aes_pcpi_def`): **caught, 91/100 cases fail** (L1, L2, L4, L5: 20/20; L3: 11/20, because G3's flush also resets the core).
+
+What this does and does not show: every variant, under every lock version, still runs the real CPU's AES program correctly and recovers from any of the 10 scan sessions without a reset. It does not re-run the attack matrix through the top-level (the attack tbs drive `aes_pcpi_def` directly with `locked` from a v1-style source; C2 is the only attack run through the top). The v2 parameters are scaled for simulation; default-parameter behaviour is still the s5d projection.
+
+**Line-by-line review of `aes_core_def.v` / `aes_pcpi_def.v` (by reading, this session).** No functional defect found. Notes:
+1. Reset is synchronous (`scan_cell`), so G3's `flush` (`locked & (scan_en ^ scan_en_q)`) is a synchronous clear, not a glitch-prone async reset. `aes_pcpi_def` and `aes_core_def` each compute `flush` from their own `scan_en_q` flop; both see the same `scan_en`/`locked`, so they flush in the same cycle.
+2. `scan_en_q` has an initial value but no reset. Fine on the FPGA (INIT). On an ASIC it would power up X, and G3 could flush once on the first cycle (harmless: it only clears).
+3. Any `DEFENSE_LEVEL` outside 1-5 silently behaves as G1; there is no parameter check. The new top maps 0 to the original module, so 0 never reaches `_def`.
+4. G1's `round_key_reg` scan-in gate (`seg_in_muxed`) is kept at every level (redundant for 2/4/5). In G4, scan_en while locked has no effect at all, so the core keeps computing functionally; that is why A3b gives the true KAT. For G2/G2R the tail ring is `block_stage`+`fsm_state`+`round_reg` = 133 bits.
+Header comments of both files named the original files; fixed to name the `_def` files (comment-only change).
+
+**Regression (26 gated tbs):** the 24 above + `tb_scan_resume_def` + `tb_cpu_driven_aes_def`. Full-run result: REG26_PLACEHOLDER
 
 ### 5a. A3 / A6 — independently verified, not just claimed
 
@@ -398,10 +431,10 @@ evidence, independently reproduced — not on a prior session's claim.**
 | G2 | Granular read masking | Only sensitive segments hidden while locked; non-sensitive tail stays observable. |
 | G3 | Flush on `scan_en` transition | Clear sensitive registers on `scan_en` change; `scan_out` stays gated until flush completes. |
 | G4 | Write blocking + interlock | Sensitive segment's `scan_en` forced to 0 while locked — **this is the mechanism that actually closes A3**, not G1/G2 alone. Optional AES-busy interlock. Must also close F13 (ciphertext spoof, via `state_reg`/`round_reg`/`fsm_state` writes) and, per owner decision 1, protect `block_stage` (plaintext) -- i.e. block scan-in for key_stage, block_stage, fsm_state, round_reg, state_reg, not only the key registers. |
-| L1 | Lock hardening | **BUILT and verified (Phase 2, §5d):** `scan_lock_controller_v2.v`. Attempt counter + lockout + boot delay; no public default code; simple gate (no LFSR — see GF-Flush break in Paper 1's own related work). Not yet in a top-level. |
+| L1 | Lock hardening | **BUILT and verified (Phase 2, §5d):** `scan_lock_controller_v2.v`. Attempt counter + lockout + boot delay; no public default code; simple gate (no LFSR — see GF-Flush break in Paper 1's own related work). **Wired into `secure_scan_rv_top_def.v` (`LOCK_VERSION=2`) and exercised through the real CPU (s5g).** Not synthesized; the board top still uses v1. |
 | S1 | Secure-build hygiene | Remove `dbg_*` taps / board bypass from the secure build (F9/F10/F11). |
 
-**Phase 5 status (30 Sep 2026):** G4 built as `DEFENSE_LEVEL=4` and measured against A1/A2/A2b/A3/A3b/A3c/A6 (s5f). G2, G3, G2R (`DEFENSE_LEVEL` 2, 3, 5) are now measured locked (s5f): G2 and G2R leave the tail writable (partial injection / rotation, plus an ENCRYPT hang), G3 wipes instead of accepting values but is defeated by holding `scan_en` high (A2c) and zeroizes on one shift. None is a complete write defense; G4 is.
+**Phase 5 status (30 Sep 2026):** G4 built as `DEFENSE_LEVEL=4` and measured against A1/A2/A2b/A3/A3b/A3c/A6 (s5f). G2, G3, G2R (`DEFENSE_LEVEL` 2, 3, 5) are now measured locked (s5f): G2 and G2R leave the tail writable (partial injection / rotation, plus an ENCRYPT hang), G3 wipes instead of accepting values but is defeated by holding `scan_en` high (A2c) and zeroizes on one shift. None is a complete write defense; G4 is. All five variants also pass the 20-case resume sweep and the CPU-driven program under no lock / v1 / v2 (s5g).
 
 **Planned granular chain layout (G2/G4):**
 ```
@@ -505,7 +538,7 @@ document concluded with. Use the recomputed estimate below.
 | 2 | Lock attacks and hardening baseline: `tb_attack_bruteforce.v` (A4); L1 (attempt counter/lockout) in `scan_lock_controller_v2.v` | 1 week | Phase 1 (can run parallel to Phase 3) |
 | 3 | Sensitivity map (§8): `tb_sensitivity.v`, CSV + heat map, confirm/refute F4-F6 | 2 weeks | Phase 1 (can run parallel to Phase 2) |
 | 4 | **DONE (29 Sep 2026)** Attack suite completion: A1-A4, A6 asserted; A2 measured (negative for key tamper, POSITIVE for ciphertext spoof); attack x design table for G0, G1 (`tb_attack_matrix.v`, s5e) | 1 week | Phases 2 and 3 both done |
-| 5 | Defenses: **G4 first** (closes the confirmed A3 attack; reordered ahead of G2 for exactly this reason), then G2, then G3; re-run the full attack suite on each variant; full regression (KAT, `tb_scan_resume`, `tb_cpu_driven_aes`) must still pass; functional-cost check (ciphertext bit-exact while locked) | 4 weeks (**IN PROGRESS: G4 measured, G2/G3 locked tests and functional checks outstanding, s5f**) | Phase 4 |
+| 5 | Defenses: **G4 first** (closes the confirmed A3 attack; reordered ahead of G2 for exactly this reason), then G2, then G3; re-run the full attack suite on each variant; full regression (KAT, `tb_scan_resume`, `tb_cpu_driven_aes`) must still pass; functional-cost check (ciphertext bit-exact while locked) | 4 weeks (**IN PROGRESS: G1-G4/G2R measured locked (s5f); resume + CPU-driven checks pass on every variant, L1 wired into a top-level (s5g). Outstanding: attack matrix through the top-level, T1, Vivado**) | Phase 4 |
 | 7 | Formal analysis (§9) + testability (T1 required, T2 required, T3 optional) + Vivado sweep for G0-G4 (mean/min/max over ≥3 directives) | 3 weeks | Phase 5 |
 | 8 | Paper: central attack × defense matrix, sensitivity heat map, all sections, cover letter relating to Paper 1 | 4 weeks | Phase 7 |
 
@@ -611,7 +644,7 @@ results/ sensitivity.csv  attack_matrix.csv  vivado_sweep.csv  proofs/
 3b. ~~Phase 2 (`tb_attack_bruteforce.v`, L1 lock hardening)~~ — **done (§5d).** Next: Phase 4 (attack suite completion: A1-A4, A6 as reusable tasks, A2 negative result, attack x design table for G0/G1). Phase 4 done (s5e). Phase 5 unblocked (decision 1 resolved).
 4. Confirm SymbiYosys is installed/installable before committing to Phase 7 as scoped.
 5. Defer the CPU register file extension until the core path is done.
-6. **Phase 5 next (in this order):** (a) put `aes_core_def.v`/`aes_pcpi_def.v`, the three new tbs and the rebuilt `run_regression.sh` under version control; (b) ~~G2/G3/G2R locked columns~~ done, ~~rebuild regression~~ done (s5f); (c) run `tb_scan_resume` and `tb_cpu_driven_aes` against variants (needs a top-level with a `DEFENSE_LEVEL` parameter; do together with (e)); (d) review the regenerated `*_def.v` line by line; (e) wire `scan_lock_controller_v2` into a top-level as a `DEFENSE_LEVEL`/lock option and re-run the attack matrix through it; (f) decide the paper's defense ladder: G1 -> G4 as the recommended design, G2/G2R/G3 as ablations that show why read-masking, granular tails and flush-on-edge are insufficient; (g) update s3/s5/s7/s17 again.
+6. **Phase 5 next (in this order):** ~~(a) version control~~ done (git); ~~(b) G2/G3/G2R columns, regression~~ done (s5f); ~~(c) `tb_scan_resume`/`tb_cpu_driven_aes` on variants~~ done (s5g); ~~(d) line-by-line review of `*_def.v`~~ done, no defect, 4 notes (s5g); (e) ~~wire `scan_lock_controller_v2` into a top-level~~ done (s5g); still open: re-run the attack matrix (A1-A3, A6) *through* `secure_scan_rv_top_def` with LOCK_VERSION=2, not only C2; (f) decide the paper's defense ladder: G1 -> G4 as the recommended design, G2/G2R/G3 as ablations that show why read-masking, granular tails and flush-on-edge are insufficient; (g) T1 testability metric (observable/writable fraction locked, G0/G1/G2/G4) — can start now; (h) re-run `mutate.py`'s 12 mutants in this repo (s5g says whether done).
 7. Ask the owner for Vivado reports for G0/G1/G4 before any overhead number is written anywhere. Confirm SymbiYosys before scoping Phase 7 (item 4 above).
 
 ---
@@ -623,9 +656,9 @@ results/ sensitivity.csv  attack_matrix.csv  vivado_sweep.csv  proofs/
 | S1 | Write-based attack confirmed or refuted on Paper 1 | **DONE — A3/A6 confirmed independently** |
 | S2 | Sensitivity map covers all chain bits × ≥10 capture points × ≥32 key pairs | **DONE — 645 bits × 16 capture points × 32 random pairs (§5c)** |
 | S3 | Hardened design: A1-A6 all give 0 bits recovered/controlled or documented residual | **Partial.** G4 blocks every asserted row (A1, A2, A2b, A2c, A3, A3b, A3c, A6, A6@1, A9) in one 58-check tb with mutation checks (s5f); G2/G3/G2R measured and shown NOT to be complete write defenses. A4 with L1 not wired into a top-level. A5 deferred. |
-| S4 | A4 requires >2^32 effort or is blocked by lockout | **Partly done.** L1 built; unit + integration tests pass; cost formula verified at scaled parameters; >2^32 effort at real parameters is a projection. Not yet in a top-level or synthesized |
+| S4 | A4 requires >2^32 effort or is blocked by lockout | **Partly done.** L1 built; unit + integration tests pass; cost formula verified at scaled parameters; >2^32 effort at real parameters is a projection. Wired into `secure_scan_rv_top_def` and exercised through the real CPU at scaled parameters (s5g). Not synthesized |
 | S5 | Write-side non-interference proved on at least G4, with a failing negative control | Not started |
-| S6 | Functional AES unchanged (KAT bit-exact, `tb_scan_resume` 20/20, `tb_cpu_driven_aes` PASS) for every variant | Baseline confirmed for G0/G1. For `_def` variants: unlocked lockstep equivalence (900 random cycles) and `tb_def_functional` (KAT + back-to-back KAT, L1-L5 locked and unlocked) PASS. `tb_scan_resume` 20/20 and `tb_cpu_driven_aes` **not yet run** on any variant. |
+| S6 | Functional AES unchanged (KAT bit-exact, `tb_scan_resume` 20/20, `tb_cpu_driven_aes` PASS) for every variant | Baseline confirmed for G0/G1. For `_def` variants: unlocked lockstep equivalence (900 random cycles) and `tb_def_functional` (KAT + back-to-back KAT, L1-L5 locked and unlocked) PASS. **`tb_scan_resume` 20/20 on each of L1-L5 (100/100) and the CPU-driven KAT on all DEFENSE_LEVEL 0-5 x LOCK_VERSION 0-2 (18/18) PASS (s5g).** Functional side of S6 met in simulation for every variant; no hardware or post-synthesis run. |
 | S7 | Overhead reported as a spread over ≥3 directives vs. a correct baseline | Not started |
 | S8 | Testability metric T1 (+T2) reported for G0/G1 vs G2/G4 | Not started |
 | S9 | Every paper claim traceable to a passing test, proof, or report | In progress — this document is entry 1 |

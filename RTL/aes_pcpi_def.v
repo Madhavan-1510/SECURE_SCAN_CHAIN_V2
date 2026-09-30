@@ -1,5 +1,6 @@
 // ============================================================================
-// aes_pcpi.v  (Phase 6: scan-retrofitted)
+// aes_pcpi_def.v  (Paper 2 defense variants of aes_pcpi.v; header below is
+//                  aes_pcpi.v's Phase 6 header, kept for reference)
 //
 // Purpose: PicoRV32 PCPI-compliant wrapper around aes_core.v (see original
 // header for the full PCPI timing contract -- unchanged in Phase 6).

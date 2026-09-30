@@ -1,5 +1,6 @@
 import os,shutil,subprocess,sys,re,time
-base=os.getcwd(); out='/tmp/mut'; shutil.rmtree(out,ignore_errors=True); os.makedirs(out)
+# Run from anywhere: flattens RTL/ + TB/ into one dir per mutant under .reg_work/mut/
+base=os.path.dirname(os.path.abspath(__file__)); out=os.path.join(base,'.reg_work','mut'); shutil.rmtree(out,ignore_errors=True); os.makedirs(out)
 def nth(s,pat,new,n):
     idx=-1
     for _ in range(n):
@@ -25,8 +26,9 @@ M=[
 if len(sys.argv)>1: M=[m for m in M if m[0] in sys.argv[1:]]
 for name,f,fn,tb in M:
     d=f"{out}/{name}"; os.makedirs(d)
-    for x in os.listdir(base):
-        if x.endswith('.v') or x.endswith('.vh'): shutil.copy(f"{base}/{x}",d)
+    for sub in ('RTL','TB'):
+        for x in os.listdir(f"{base}/{sub}"):
+            if x.endswith('.v') or x.endswith('.vh'): shutil.copy(f"{base}/{sub}/{x}",d)
     s=open(f"{d}/{f}").read(); t=fn(s); assert t!=s,name
     open(f"{d}/{f}","w").write(t)
     rtl=[x for x in sorted(os.listdir(d)) if x.endswith('.v') and not x.startswith('tb_') and x!='secure_scan_rv_top.v']
