@@ -11,7 +11,7 @@ of the date below).
 > (1) `run_regression.sh` rewritten for the `RTL/`+`TB/` layout (the copy in the upload was still the old flat-directory 16-tb script). Full run of the 24 previously gated tbs: **`SUMMARY passed=24 failed=0 total=24`**; `tb_attack_defenses` PASS lines identical to the saved `tb_attack_defenses.log` (58 PASS). Gate negative control: a missing tb reports MISSING and exits 1.
 > (2) NEW `secure_scan_rv_top_def.v`: CPU + AES top with `DEFENSE_LEVEL` (0 = original datapath, 1-5 = `_def` variants) and `LOCK_VERSION` (0 none, 1 v1, 2 `scan_lock_controller_v2`). **L1 is now wired into a top-level** (simulation only; not synthesized).
 > (3) NEW `tb_cpu_driven_aes_def.v`: real-CPU KAT on all 18 DEFENSE_LEVEL x LOCK_VERSION configs + locked/unlocked scan read + v2 lockout at top level: **144 PASS / 0 FAIL, 18/18 configs**. NEW `tb_scan_resume_def.v`: the unchanged 20-case resume sweep on L1-L5: **100/100 OK**. Each has a mutant that it catches (s5g).
-> (4) Legacy `secure_scan_rv_top.v` deleted. Line-by-line read of `*_def.v`: no functional defect found, 4 notes (s5g). Final 26-tb result: s5g.
+> (4) Legacy `secure_scan_rv_top.v` deleted. Line-by-line read of `*_def.v`: no functional defect found, 4 notes (s5g). **Full regression: `SUMMARY passed=26 failed=0 total=26`.**
 >
 > **Previous session update (30 Sep 2026, second Phase 5 session):**
 > Phase 5 is still IN PROGRESS. Measured this session (Icarus 12.0, single-core sandbox; every result below was produced by running the project RTL, and the G2/G3/G2R probe was re-run and matched the saved `probe3.log` line for line):
@@ -358,7 +358,7 @@ What this does and does not show: every variant, under every lock version, still
 4. G1's `round_key_reg` scan-in gate (`seg_in_muxed`) is kept at every level (redundant for 2/4/5). In G4, scan_en while locked has no effect at all, so the core keeps computing functionally; that is why A3b gives the true KAT. For G2/G2R the tail ring is `block_stage`+`fsm_state`+`round_reg` = 133 bits.
 Header comments of both files named the original files; fixed to name the `_def` files (comment-only change).
 
-**Regression (26 gated tbs):** the 24 above + `tb_scan_resume_def` + `tb_cpu_driven_aes_def`. Full-run result: REG26_PLACEHOLDER
+**Regression (26 gated tbs):** the 24 above + `tb_scan_resume_def` + `tb_cpu_driven_aes_def`. Full-run result (`JOBS=4 ./run_regression.sh`, after deleting the legacy top): **`SUMMARY passed=26 failed=0 total=26`**, 11 min 30 s wall on a 4-core sandbox.
 
 ### 5a. A3 / A6 — independently verified, not just claimed
 
