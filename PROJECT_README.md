@@ -154,7 +154,7 @@ the chain.
 
 Project-snapshot discrepancies (this upload): the `phase3/` outputs listed above are not in the upload (`tb_sensitivity` regenerates `sens_bits.csv` and `kat_snaps.txt` into `.reg_work/tb_sensitivity/`; `analyze_sensitivity.py` and the heat map are not in the upload), `probe3.log` is not in the upload, and `tb_scan_lock_v2.v.vivado_stub` is not in the upload. `constraints.xdc` is present under `CONSTRAINTS/`.
 
-**Not yet written (Paper 2 deliverables):** formal `.sby` files, Vivado sweep scripts, T1 testability metric, synthesis of `secure_scan_rv_top_def`, a board top using `scan_lock_controller_v2`. (The planned `aes_core_g2.v`/`aes_pcpi_g2.v` names were replaced by the `*_def.v` parameterized variants.)
+**Not yet written (Paper 2 deliverables):** formal `.sby` files, Vivado sweep scripts, synthesis of `secure_scan_rv_top_def`, a board top using `scan_lock_controller_v2`. (T1/T2 done, s5i/s5j; `docs/claims_to_evidence.md` maps every claim to its test.) (The planned `aes_core_g2.v`/`aes_pcpi_g2.v` names were replaced by the `*_def.v` parameterized variants.)
 
 ---
 
@@ -401,6 +401,28 @@ Reading:
 
 (*) G2R's observable count saturates at 646 because the tail recirculates its 1s instead of draining; the true observable width is the 133-bit tail, taken from the structure, not from the saturated sample count. Gated assertions in the tb check the exact writable counts for G1/G2/G4 (G4 = 0, G2 sensitive = 0 and tail = 132, G1 `round_key_reg` = 0 and `key_stage`/`state_reg` = 128).
 
+### 5j. Phase 7 metric T2 -- chain-integrity (flush) + stuck-at in simulation (Icarus 12.0, measured, 30 Sep 2026)
+
+`tb_testability_t2.v`. **Flush / chain-integrity:** shift a known 645-bit pattern in, then shift it out feeding 0 and capture `scan_out`; a bit is "recovered" only if it tracks the input in BOTH the pattern pass and its complement (so a masked or stuck constant output nets to 0 rather than coincidentally matching an alternating pattern -- an artifact that a single-pattern count would have mis-reported as 323). **Stuck-at:** force one scan cell's `q_reg` to a constant and re-run the unlocked flush; the fault must corrupt the recovered stream. 5 chain positions x {s-a-0, s-a-1} on G1.
+
+| Variant | Flush recovered UNLOCKED | Flush recovered LOCKED |
+|---|---|---|
+| G0 (DL0 datapath) | 645/645 | 0 |
+| G1 | 645/645 | 0 (masked) |
+| G2 | 645/645 | 133 (tail) |
+| G3 | 645/645 | 0 (masked) |
+| **G4** | 645/645 | 0 (frozen) |
+| G2R | 645/645 | 0 (tail observable but not injectable, so a loaded pattern is not read back) |
+
+Stuck-at: **10/10 injected faults detected** (each drops unlocked recovery from 645 to 0 under the strict metric).
+
+Reading:
+- **Every defense variant is fully testable while UNLOCKED (645/645).** The defenses cost nothing in normal manufacturing-test mode; this is the flip side of T1 and supports S6/S8.
+- **Locked recovery matches T1:** G1/G3/G4/G2R expose nothing recoverable, G2 exposes its 133-bit tail. G2R's T1 "observable" (scan_out depends on content) and T2 "recovered" = 0 (a shifted-in pattern cannot be read back) together are exactly the "observable but not injectable" property.
+- **A standard flush test detects scan stuck-at faults**, so the chain remains a usable DfT structure when unlocked. This is a sim demonstration at 10 sites, not full ATPG coverage (T3, appendix).
+
+Limit: fault detection shown at 10 representative sites with `force`/`release`, not an exhaustive 645-site sweep; T3 (Yosys+Fault/Atalanta) is still appendix-only.
+
 ### 5a. A3 / A6 — independently verified, not just claimed
 
 `tb_attack_probe.v` was **re-run independently** (not just trusted from a
@@ -541,7 +563,7 @@ every cycle of the reduced/bounded model under test.
 | Tier | Metric | Required? |
 |---|---|---|
 | T1 | Observable fraction and writable fraction of chain bits while locked (G1 vs G2 vs G4) | **Yes — core deliverable** |
-| T2 | Chain-integrity flush test + stuck-at injection in sim | Yes |
+| T2 | Chain-integrity flush test + stuck-at injection in sim | **DONE (s5j):** `tb_testability_t2`, 645/645 unlocked all variants, 10/10 stuck-at detected |
 | T3 | Yosys+Fault/Atalanta restricted stuck-at coverage | Optional — appendix only |
 
 **Tooling dependency:** SymbiYosys (`sby`) must be confirmed installable
@@ -701,7 +723,7 @@ results/ sensitivity.csv  attack_matrix.csv  vivado_sweep.csv  proofs/
 | S5 | Write-side non-interference proved on at least G4, with a failing negative control | Not started |
 | S6 | Functional AES unchanged (KAT bit-exact, `tb_scan_resume` 20/20, `tb_cpu_driven_aes` PASS) for every variant | Baseline confirmed for G0/G1. For `_def` variants: unlocked lockstep equivalence (900 random cycles) and `tb_def_functional` (KAT + back-to-back KAT, L1-L5 locked and unlocked) PASS. **`tb_scan_resume` 20/20 on each of L1-L5 (100/100) and the CPU-driven KAT on all DEFENSE_LEVEL 0-5 x LOCK_VERSION 0-2 (18/18) PASS (s5g).** Functional side of S6 met in simulation for every variant; no hardware or post-synthesis run. |
 | S7 | Overhead reported as a spread over ≥3 directives vs. a correct baseline | Not started |
-| S8 | Testability metric T1 (+T2) reported for G0/G1 vs G2/G4 | **T1 done (s5i):** writable/observable per variant measured -- G1 0 observable but 388/645 writable, G4 0/0, G2 tail 132 writable, G2R tail observable-not-writable. T2 (flush/stuck-at) not started. |
+| S8 | Testability metric T1 (+T2) reported for G0/G1 vs G2/G4 | **T1 done (s5i):** writable/observable per variant measured -- G1 0 observable but 388/645 writable, G4 0/0, G2 tail 132 writable, G2R tail observable-not-writable. **T2 done (s5j):** all variants 645/645 testable unlocked; 10/10 stuck-at faults detected; locked recovery matches T1. T3 appendix-only. |
 | S9 | Every paper claim traceable to a passing test, proof, or report | In progress — this document is entry 1 |
 
 **Non-goals:** proving AES itself secure; power/EM side channels; ASIC
