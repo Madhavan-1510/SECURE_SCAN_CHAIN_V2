@@ -362,6 +362,45 @@ Header comments of both files named the original files; fixed to name the `_def`
 
 **Regression (26 gated tbs):** the 24 above + `tb_scan_resume_def` + `tb_cpu_driven_aes_def`. Full-run result (`JOBS=4 ./run_regression.sh`, after deleting the legacy top): **`SUMMARY passed=26 failed=0 total=26`**, 11 min 30 s wall on a 4-core sandbox.
 
+### 5h. Phase 5 (continued) -- attack matrix through the full top-level (Icarus 12.0, 30 Sep 2026, third session)
+
+`tb_attack_top_def.v` runs the attacks against `secure_scan_rv_top_def` with the **real picorv32 driving the coprocessor over PCPI and the real lock controller driving `locked`**. The attacker touches only `scan_en`/`scan_in`/`scan_out` -- no `locked` override, no hierarchical writes into the design (the only hierarchical accesses are the testbench loading the CPU's program and reading the word the CPU itself stored, as in `tb_cpu_driven_aes.v`). Firmware: the `tb_cpu_driven_aes.v` program plus a service loop (poll 0x700; 1 = ENCRYPT+READRESULT, 2 = READRESULT only; result to 0x810). The attacker acts while the CPU is in the poll loop; then the tb writes the flag (the legitimate request) and checks the ciphertext the CPU stored. Golden values from pycryptodome. v2 lock scaled to MAX_FAILS=3, LOCKOUT=BOOT_DELAY=400. **PASS, 105 checks, 25 runs.**
+
+| config | none | A1 read | A2 spoof (READRESULT only) | A3 inject (EVIL) | A6 wipe (256 zeros) |
+|---|---|---|---|---|---|
+| P1 (DL0, v1 lock), locked | KAT | BLOCKED | SUCCEEDS (all-ones) | SUCCEEDS `50b58e80..` | SUCCEEDS AES(0,0) `66e94bd4..` |
+| G0 (DL0, no lock) | KAT | LEAKS | SUCCEEDS | SUCCEEDS | SUCCEEDS |
+| G1 (DL1) + L1, locked | KAT | BLOCKED | SUCCEEDS | SUCCEEDS | SUCCEEDS |
+| **G4 (DL4) + L1, locked** | KAT | **BLOCKED** | **BLOCKED (true KAT)** | **BLOCKED (true KAT)** | **BLOCKED (true KAT)** |
+| G4 + L1, unlocked (authorised) | KAT | LEAKS | SUCCEEDS | SUCCEEDS | SUCCEEDS |
+
+Reading: through the real integration, **G4 + L1 is the only locked configuration that blocks A1, A2, A3 and A6 at once**; Paper 1 (with either lock version) blocks only A1; G4 unlocked equals G0 (so the defense adds nothing in authorised use). The "none" column confirms the service loop itself returns the true KAT in every configuration (the write attacks are what change it). This is the integrated evidence for success criterion S3 and the paper's headline table, not just module-level driving.
+Mutant (G4's `key_stage` scan-enable ungated in `aes_pcpi_def`): **caught** -- G4 A3 then returns AES(EVIL, real PT) = `56c284f3..` and A6 returns AES(0, real PT) = `c8a331ff..` (both confirmed in pycryptodome), so the injected plaintext lands again; the tb flags both as OTHER and fails.
+
+Limits: one firmware, one freeze point (CPU in the poll loop), constant/EVIL feeds only, v2 parameters scaled for simulation. A2 here is the READRESULT-only spoof (fed=1, all-ones state); the fed=0 / 389-shift IDLE variant and A2c (scan_en held high) are covered at module level in s5f. A4 (brute force) and A5 (CPU registers) are not part of this tb.
+
+### 5i. Phase 7 metric T1 -- testability while locked (Icarus 12.0, measured, 30 Sep 2026)
+
+`tb_testability_t1.v`. **Writable** (controllability) is measured exactly, per segment: reset to 0, assert locked, shift 645 bits of a constant, and read the actual stored state through the `dbg_*` ports (no shift-alignment assumptions); a bit is writable iff its stored value follows the shifted constant. **Observable** (readability) is the number of locked `scan_out` samples (of 646) that differ between an all-0 chain and an all-1 chain. `fsm_state` (1 control bit, no secret) has no `dbg` port, so it is excluded from the writable count but still shifts, so it is included in the observable tail.
+
+| Variant | Writable /645 | Observable | Writable by segment (key_stage / block_stage / round_reg / state_reg / round_key_reg / key_reg) |
+|---|---|---|---|
+| DL0 = original datapath, driven locked (= G1) | 388 | 0 (masked) | 128 / 128 / 4 / 128 / 0 / 0 |
+| G1 (DL1) Paper 1 | 388 | 0 (masked) | 128 / 128 / 4 / 128 / 0 / 0 |
+| G2 (DL2) granular mask | 132 | 133 (tail drains) | 0 / 128 / 4 / 0 / 0 / 0 |
+| G3 (DL3) flush-on-edge | 388 | 0 (masked) | 128 / 128 / 4 / 128 / 0 / 0 |
+| **G4 (DL4) write-block** | **0** | **0** | 0 / 0 / 0 / 0 / 0 / 0 |
+| G2R (DL5) recirc tail | 0 | 133* | 0 / 0 / 0 / 0 / 0 / 0 |
+
+Reading:
+- **Paper 1 (G1) is read-locked but write-open:** 0 bits observable, yet **388 of 645 bits writable** while locked (`key_stage`, `block_stage`, `round_reg`, `state_reg`; only `round_key_reg` and the `key_reg` behind it are gated). That 388 is the write surface the injection/spoof attacks use.
+- **G3** has the same 388 writable surface (its flush only clears on the `scan_en` edge; the shifted-in data still lands, matching s5f's "held `scan_en` defeats it").
+- **G2** freezes the four sensitive segments (0 writable there) but leaves the 132-bit tail (`block_stage`+`round_reg`) writable and the 133-bit tail (+`fsm_state`) observable -- which is exactly why A3 corrupts the plaintext under G2.
+- **G2R** makes the tail observable (133, recirculating) but **not writable (0)** -- the "observable, not injectable" property, confirmed by measurement.
+- **G4 is the only variant that is both 0 writable and 0 observable.** Its cost is the whole chain (645 bits) is untestable while locked; unlocked it is identical to the original (s5f equivalence). This is the security-vs-testability trade-off for the paper's T1 table.
+
+(*) G2R's observable count saturates at 646 because the tail recirculates its 1s instead of draining; the true observable width is the 133-bit tail, taken from the structure, not from the saturated sample count. Gated assertions in the tb check the exact writable counts for G1/G2/G4 (G4 = 0, G2 sensitive = 0 and tail = 132, G1 `round_key_reg` = 0 and `key_stage`/`state_reg` = 128).
+
 ### 5a. A3 / A6 — independently verified, not just claimed
 
 `tb_attack_probe.v` was **re-run independently** (not just trusted from a
@@ -646,7 +685,7 @@ results/ sensitivity.csv  attack_matrix.csv  vivado_sweep.csv  proofs/
 3b. ~~Phase 2 (`tb_attack_bruteforce.v`, L1 lock hardening)~~ — **done (§5d).** Next: Phase 4 (attack suite completion: A1-A4, A6 as reusable tasks, A2 negative result, attack x design table for G0/G1). Phase 4 done (s5e). Phase 5 unblocked (decision 1 resolved).
 4. Confirm SymbiYosys is installed/installable before committing to Phase 7 as scoped.
 5. Defer the CPU register file extension until the core path is done.
-6. **Phase 5 next (in this order):** ~~(a) version control~~ done (git); ~~(b) G2/G3/G2R columns, regression~~ done (s5f); ~~(c) `tb_scan_resume`/`tb_cpu_driven_aes` on variants~~ done (s5g); ~~(d) line-by-line review of `*_def.v`~~ done, no defect, 4 notes (s5g); (e) ~~wire `scan_lock_controller_v2` into a top-level~~ done (s5g); still open: re-run the attack matrix (A1-A3, A6) *through* `secure_scan_rv_top_def` with LOCK_VERSION=2, not only C2; (f) decide the paper's defense ladder: G1 -> G4 as the recommended design, G2/G2R/G3 as ablations that show why read-masking, granular tails and flush-on-edge are insufficient; (g) T1 testability metric (observable/writable fraction locked, G0/G1/G2/G4) — can start now; ~~(h) re-run `mutate.py`'s 12 mutants~~ done, 12/12 caught (s5g).
+6. **Phase 5 next (in this order):** ~~(a) version control~~ done (git); ~~(b) G2/G3/G2R columns, regression~~ done (s5f); ~~(c) `tb_scan_resume`/`tb_cpu_driven_aes` on variants~~ done (s5g); ~~(d) line-by-line review of `*_def.v`~~ done, no defect, 4 notes (s5g); (e) ~~wire `scan_lock_controller_v2` into a top-level~~ done (s5g); ~~re-run the attack matrix through `secure_scan_rv_top_def` with the v2 lock~~ done, `tb_attack_top_def`, G4+L1 blocks A1/A2/A3/A6 (s5h); (f) decide the paper's defense ladder: G1 -> G4 as the recommended design, G2/G2R/G3 as ablations that show why read-masking, granular tails and flush-on-edge are insufficient; ~~(g) T1 testability metric~~ done (s5i); ~~(h) re-run `mutate.py`'s 12 mutants~~ done, 12/12 caught (s5g).
 7. Ask the owner for Vivado reports for G0/G1/G4 before any overhead number is written anywhere. Confirm SymbiYosys before scoping Phase 7 (item 4 above).
 
 ---
@@ -657,12 +696,12 @@ results/ sensitivity.csv  attack_matrix.csv  vivado_sweep.csv  proofs/
 |---|---|---|
 | S1 | Write-based attack confirmed or refuted on Paper 1 | **DONE — A3/A6 confirmed independently** |
 | S2 | Sensitivity map covers all chain bits × ≥10 capture points × ≥32 key pairs | **DONE — 645 bits × 16 capture points × 32 random pairs (§5c)** |
-| S3 | Hardened design: A1-A6 all give 0 bits recovered/controlled or documented residual | **Partial.** G4 blocks every asserted row (A1, A2, A2b, A2c, A3, A3b, A3c, A6, A6@1, A9) in one 58-check tb with mutation checks (s5f); G2/G3/G2R measured and shown NOT to be complete write defenses. A4 with L1 not wired into a top-level. A5 deferred. |
+| S3 | Hardened design: A1-A6 all give 0 bits recovered/controlled or documented residual | **Partial.** G4 blocks every asserted row (A1, A2, A2b, A2c, A3, A3b, A3c, A6, A6@1, A9) in one 58-check tb with mutation checks (s5f); G2/G3/G2R measured and shown NOT to be complete write defenses. Through the full top-level (`tb_attack_top_def`, s5h): G4+L1 blocks A1/A2/A3/A6 driven by the real CPU with the real v2 lock; P1/G1 block only A1. A4 through the top-level and A5 still deferred. |
 | S4 | A4 requires >2^32 effort or is blocked by lockout | **Partly done.** L1 built; unit + integration tests pass; cost formula verified at scaled parameters; >2^32 effort at real parameters is a projection. Wired into `secure_scan_rv_top_def` and exercised through the real CPU at scaled parameters (s5g). Not synthesized |
 | S5 | Write-side non-interference proved on at least G4, with a failing negative control | Not started |
 | S6 | Functional AES unchanged (KAT bit-exact, `tb_scan_resume` 20/20, `tb_cpu_driven_aes` PASS) for every variant | Baseline confirmed for G0/G1. For `_def` variants: unlocked lockstep equivalence (900 random cycles) and `tb_def_functional` (KAT + back-to-back KAT, L1-L5 locked and unlocked) PASS. **`tb_scan_resume` 20/20 on each of L1-L5 (100/100) and the CPU-driven KAT on all DEFENSE_LEVEL 0-5 x LOCK_VERSION 0-2 (18/18) PASS (s5g).** Functional side of S6 met in simulation for every variant; no hardware or post-synthesis run. |
 | S7 | Overhead reported as a spread over ≥3 directives vs. a correct baseline | Not started |
-| S8 | Testability metric T1 (+T2) reported for G0/G1 vs G2/G4 | Not started |
+| S8 | Testability metric T1 (+T2) reported for G0/G1 vs G2/G4 | **T1 done (s5i):** writable/observable per variant measured -- G1 0 observable but 388/645 writable, G4 0/0, G2 tail 132 writable, G2R tail observable-not-writable. T2 (flush/stuck-at) not started. |
 | S9 | Every paper claim traceable to a passing test, proof, or report | In progress — this document is entry 1 |
 
 **Non-goals:** proving AES itself secure; power/EM side channels; ASIC
