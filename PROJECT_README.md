@@ -360,7 +360,7 @@ Header comments of both files named the original files; fixed to name the `_def`
 
 **`mutate.py` re-run in this repo (12 mutants, unmodified tbs; the earlier session's claim re-checked, not trusted):** A `state_reg` ungated 5 FAIL; B `round_key_reg` ungated 3; C `key_reg` ungated 5; D `round_reg` ungated 5; E `key_stage` ungated 6; F `block_stage` ungated 4; G `aes_pcpi.fsm_state` ungated 3; H core output mask removed 3; I gate polarity 15 (all `tb_attack_defenses`); EQ1 gate polarity 3; EQ2 flush not lock-qualified 1; EQ3 tail mux ignores lock 2 (`tb_defense_equiv`). **12/12 caught.** (Run in two parts: the first stopped at a 30-min sandbox limit after A-H; I and EQ1-EQ3 re-run separately.) Together with the 4 G2/G3/G2R mutants (s5f, not re-run here) and the 2 new-tb mutants above: 18 hand-picked mutants, all caught. Evidence, not exhaustive.
 
-**Regression (26 gated tbs):** the 24 above + `tb_scan_resume_def` + `tb_cpu_driven_aes_def`. Full-run result (`JOBS=4 ./run_regression.sh`, after deleting the legacy top): **`SUMMARY passed=26 failed=0 total=26`**, 11 min 30 s wall on a 4-core sandbox.
+**Regression (28 gated tbs):** the 24 previously gated + `tb_scan_resume_def`, `tb_cpu_driven_aes_def`, `tb_attack_top_def` (s5h) and `tb_testability_t1` (s5i). Full-run result (`JOBS=3 ./run_regression.sh`): **`SUMMARY passed=28 failed=0 total=28`**, ~12.5 min wall on a 4-core sandbox. (Interim milestones this session: 26/26 after the resume+CPU tbs, 27/27 after the top-level attack tb.)
 
 ### 5h. Phase 5 (continued) -- attack matrix through the full top-level (Icarus 12.0, 30 Sep 2026, third session)
 
