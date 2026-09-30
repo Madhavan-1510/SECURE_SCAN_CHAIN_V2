@@ -1,0 +1,71 @@
+PASS: no PCPI timeouts in this column (G0/G1/G4/G4U)
+PASS: no PCPI timeouts in this column (G0/G1/G4/G4U)
+PASS: no PCPI timeouts in this column (G0/G1/G4/G4U)
+PASS: no PCPI timeouts in this column (G0/G1/G4/G4U)
+PASS: G0 A1: key recovered from scan_out
+PASS: G0 A2: bare READRESULT returns scan-forced value (spoof)
+PASS: G0 A2b (fed=1): spoof
+PASS: G0 A3: encrypts attacker (key,pt)
+PASS: G0 A6: key_reg NOT zero at 256 shifts
+PASS: G0 A6: all key regs zero at 645 shifts
+PASS: G0 A2c: spoof with scan_en held high returns FFFFFFFF
+PASS: G0 A9/A8: scan_out depends on the key; all-ones key visible (positive control)
+PASS: G1 A1: BLOCKED (window all-zero, no key anywhere)
+PASS: G1 A2: spoof NOT blocked
+PASS: G1 A2b: spoof NOT blocked
+PASS: G1 A3: injection NOT blocked
+PASS: G1 A6: zeroize works (cheaper: 256 shifts)
+PASS: G1 A2c: spoof NOT blocked
+PASS: G1 A9/A8: scan_out key-independent, and nothing observable at all while locked
+PASS: G4 A1: BLOCKED (window all-zero, no key anywhere)
+PASS: G4 A2: spoof BLOCKED
+PASS: G4 A2: READRESULT after 389 hostile shifts returns the TRUE NIST KAT ciphertext
+PASS: G4 A2b (fed=1): spoof BLOCKED
+PASS: G4 A2b: READRESULT returns the TRUE NIST KAT ciphertext
+PASS: G4 A3: attacker (key,pt) NOT encrypted
+PASS: G4 A3: ciphertext == AES(real KEY, real plaintext) (pycryptodome golden)
+PASS: G4 A3b: plaintext-LSB=1 injection (F8 hang case) is harmless: ENCRYPT accepted, KAT ciphertext bit-exact
+PASS: G4 A3c: plaintext-MSB=1 + hostile shifts: fsm_state stays IDLE, ENCRYPT accepted, ciphertext == AES(KEY,PTM) (pycryptodome golden)
+PASS: A1b positive control: unlocked G0 and G4-unlocked DO expose key_reg[127]=1 on scan_out (probe can see a leak)
+PASS: A1b: locked G1 and G4 show NO 1 on scan_out (all-ones key, pre-shift + 8 shifts): output mask intact
+PASS: G4 A6: zeroize BLOCKED at 256 and 645 shifts
+PASS: G4 A6: key_reg still equals the real key after 256 hostile shifts
+PASS: G4 A6@1: a single hostile shift does not zeroize key_reg
+PASS: G4 A2c: spoof with scan_en HELD HIGH blocked: READRESULT word0 is the true KAT word
+PASS: G4 A9/A8: scan_out key-independent; nothing observable while locked
+PASS: G4 A7: key_stage, block_stage, key_reg unchanged by 645 hostile shifts (also 2 clocks later: no deferred flush)
+PASS: G4: no PCPI timeouts anywhere
+PASS: G4-unlocked A1: key recovered exactly like G0 (lock-sensitive)
+PASS: G4-unlocked: A2/A2b/A3/A6 all identical to undefended G0
+PASS: G4-unlocked: spoof/injection ciphertexts bit-identical to G0
+PASS: G4-unlocked: A2c/A9/A8/A6@1/A7 identical to G0
+---- G2 (locked) ----
+PASS: G2 A1/A8/A9: key not recoverable, scan_out key-independent (differential over two keys)
+PASS: G2: the non-sensitive tail IS observable while locked (its purpose)
+PASS: G2 A3: INJECTION SUCCEEDS on the tail: ciphertext == AES(real KEY, attacker plaintext) (pycryptodome)
+PASS: G2 A2: state corrupted by tail writes (faulty ciphertext, neither true KAT nor forged zero): integrity NOT preserved
+PASS: G2 A3b: plaintext-LSB=1 injection HANGS ENCRYPT (availability hazard, F8) and nothing else times out
+PASS: G2 A6: key_reg intact after 256 hostile shifts (sensitive regs frozen)
+---- G3 (locked) ----
+PASS: G3: no PCPI timeouts
+PASS: G3 A1/A8/A9: read blocked, nothing observable
+PASS: G3 A3: injection becomes a WIPE: ciphertext == AES(0,0) (pycryptodome), attacker value does not land
+PASS: G3 A6: ONE hostile shift zeroizes key_reg (flush): cheapest DoS of any variant
+PASS: G3 A2c: FAILS when scan_en is held high (no falling edge => no flush): forged word FFFFFFFF accepted by READRESULT
+PASS: G3 A2b: with the falling edge present the spoof becomes a wipe (all-zero, not attacker-chosen)
+---- G2R (locked) ----
+PASS: G2R A1/A8/A9: key not leaked, tail observable
+PASS: G2R A3: attacker cannot choose plaintext but the tail ROTATES it: ciphertext == AES(KEY, PT0>>5) (pycryptodome): integrity NOT preserved
+PASS: G2R A3b: plaintext-LSB=1 case still HANGS ENCRYPT (rotation corrupts fsm_state)
+PASS: G2R A2c: READRESULT completes without a data write (pcpi_wr=0), no forged value returned
+PASS: G2R A6: key_reg intact after 256 hostile shifts
+
+========= ATTACK x DESIGN (measured, all cells asserted; G2/G3/G2R locked) =========
+  attack      | G0        | G1        | G4 locked | G2        | G3        | G2R
+  A1 read     | SUCCEEDS  | BLOCKED   | BLOCKED   | BLOCKED   | BLOCKED   |  BLOCKED
+  A2c spoof   | SUCCEEDS  | SUCCEEDS  | BLOCKED   | n/a       | SUCCEEDS  |  BLOCKED
+  A3 inject   | SUCCEEDS  | SUCCEEDS  | BLOCKED   | PARTIAL   | WIPE      | ROTATE
+  A6@1 zero   | intact    | intact    | intact    | intact    | ZEROED    | intact
+===================================================================================
+TESTBENCH: ALL TESTS PASSED
+tb_attack_defenses.v:344: $finish called at 70097000 (1ps)
