@@ -11,7 +11,7 @@ of the date below).
 > (1) `run_regression.sh` rewritten for the `RTL/`+`TB/` layout (the copy in the upload was still the old flat-directory 16-tb script). Full run of the 24 previously gated tbs: **`SUMMARY passed=24 failed=0 total=24`**; `tb_attack_defenses` PASS lines identical to the saved `tb_attack_defenses.log` (58 PASS). Gate negative control: a missing tb reports MISSING and exits 1.
 > (2) NEW `secure_scan_rv_top_def.v`: CPU + AES top with `DEFENSE_LEVEL` (0 = original datapath, 1-5 = `_def` variants) and `LOCK_VERSION` (0 none, 1 v1, 2 `scan_lock_controller_v2`). **L1 is now wired into a top-level** (simulation only; not synthesized).
 > (3) NEW `tb_cpu_driven_aes_def.v`: real-CPU KAT on all 18 DEFENSE_LEVEL x LOCK_VERSION configs + locked/unlocked scan read + v2 lockout at top level: **144 PASS / 0 FAIL, 18/18 configs**. NEW `tb_scan_resume_def.v`: the unchanged 20-case resume sweep on L1-L5: **100/100 OK**. Each has a mutant that it catches (s5g).
-> (4) Legacy `secure_scan_rv_top.v` deleted. Line-by-line read of `*_def.v`: no functional defect found, 4 notes (s5g). **Full regression: `SUMMARY passed=26 failed=0 total=26`.**
+> (4) Legacy `secure_scan_rv_top.v` deleted. Line-by-line read of `*_def.v`: no functional defect found, 4 notes (s5g). **Full regression: `SUMMARY passed=29 failed=0 total=29` (29 gated tbs).**
 >
 > **Previous session update (30 Sep 2026, second Phase 5 session):**
 > Phase 5 is still IN PROGRESS. Measured this session (Icarus 12.0, single-core sandbox; every result below was produced by running the project RTL, and the G2/G3/G2R probe was re-run and matched the saved `probe3.log` line for line):
@@ -360,7 +360,7 @@ Header comments of both files named the original files; fixed to name the `_def`
 
 **`mutate.py` re-run in this repo (12 mutants, unmodified tbs; the earlier session's claim re-checked, not trusted):** A `state_reg` ungated 5 FAIL; B `round_key_reg` ungated 3; C `key_reg` ungated 5; D `round_reg` ungated 5; E `key_stage` ungated 6; F `block_stage` ungated 4; G `aes_pcpi.fsm_state` ungated 3; H core output mask removed 3; I gate polarity 15 (all `tb_attack_defenses`); EQ1 gate polarity 3; EQ2 flush not lock-qualified 1; EQ3 tail mux ignores lock 2 (`tb_defense_equiv`). **12/12 caught.** (Run in two parts: the first stopped at a 30-min sandbox limit after A-H; I and EQ1-EQ3 re-run separately.) Together with the 4 G2/G3/G2R mutants (s5f, not re-run here) and the 2 new-tb mutants above: 18 hand-picked mutants, all caught. Evidence, not exhaustive.
 
-**Regression (28 gated tbs):** the 24 previously gated + `tb_scan_resume_def`, `tb_cpu_driven_aes_def`, `tb_attack_top_def` (s5h) and `tb_testability_t1` (s5i). Full-run result (`JOBS=3 ./run_regression.sh`): **`SUMMARY passed=28 failed=0 total=28`**, ~12.5 min wall on a 4-core sandbox. (Interim milestones this session: 26/26 after the resume+CPU tbs, 27/27 after the top-level attack tb.)
+**Regression (29 gated tbs):** the 24 previously gated + `tb_scan_resume_def`, `tb_cpu_driven_aes_def`, `tb_attack_top_def` (s5h), `tb_testability_t1` (s5i) and `tb_testability_t2` (s5j). Full-run result (`JOBS=3 ./run_regression.sh`): **`SUMMARY passed=29 failed=0 total=29`**. Wall time ~29 min at JOBS=3 (T2 instantiates the coprocessor 7x and runs two flush passes each, so it dominates; the other 28 finish in ~12 min). (Interim milestones this session: 26/26, 27/27, 28/28.)
 
 ### 5h. Phase 5 (continued) -- attack matrix through the full top-level (Icarus 12.0, 30 Sep 2026, third session)
 
