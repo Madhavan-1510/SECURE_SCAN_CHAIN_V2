@@ -1,0 +1,21 @@
+[options]
+mode prove
+depth 6
+
+[engines]
+smtbmc z3
+
+[script]
+read -formal fv_readlock.v
+read -formal aes_core_def.v
+read -formal aes_sbox.v
+read -formal scan_chain.v
+read -formal scan_cell.v
+prep -top fv_readlock
+
+[files]
+formal/fv_readlock.v
+RTL/aes_core_def.v
+RTL/aes_sbox.v
+RTL/scan_chain.v
+RTL/scan_cell.v
