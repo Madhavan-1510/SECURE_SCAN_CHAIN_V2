@@ -319,10 +319,45 @@ Commands: `S` status · `R` scan-read (all zeros locked) · `W<hex>` inject ·
 `K`/`B` load · `E` encrypt · `U<hex>` unlock · `L` relock. See
 `docs/board_demo.md` and `scripts/scan_console.py --demo`.
 
-**[[FILL — board results you will capture]]**
-- Serial-terminal transcript of the `--demo` run (G1 changes, G4 holds).
-- Photo/screenshot: locked `R` all-zeros vs unlocked key.
-- LED/RGB state photos (locked vs unlocked).
+**Captured on hardware (PuTTY over the board USB-UART, 115200 8N1). Four demos:**
+
+*Demo 1 — it works, and the unlocked read leaks the key:*
+```
+U5EC2E7A1
+K000102030405060708090A0B0C0D0E0F      -> K ok
+B00112233445566778899AABBCCDDEEFF      -> B ok
+E   -> E 69C4E0D86A7B0430D8CDB78070B4C55A        (correct NIST KAT)
+R   -> R 000102030405060708090A0B0C0D0E0F 13111D7FE3944A17F307A78B4D2B30C5
+        69C4E0D86A7B0430D8CDB78070B4C55A ...     (key, then K10, then ciphertext)
+```
+The unlocked scan dump exposes the key, the final round key K10, and the ciphertext.
+
+*Demo 3 — locked read returns all zeros (Paper 1 read lock):*
+```
+U5EC2E7A1 ; K... ; B... ; E -> 69C4E0D8...  ; L -> L ok
+R   -> R 0000...0000   (645 zero bits: the loaded secret is hidden while locked)
+```
+
+*Demo 4.1 — G1 (sw[0]=0): injection while locked SUCCEEDS:*
+```
+U5EC2E7A1 ; K... ; B... ; L ; W0F1E2D3C...E1F0 -> W ok
+E   -> E 3337D4676A76508AE121E4C2BFD4FD9A        (ciphertext CHANGED from the KAT)
+```
+The scan-injected key reached the engine; the output is no longer the KAT, so the
+write attack works on the Paper 1 lock. (With the exact canonical attacker key the
+simulated value is 50b58e80...; any injected key changes the output.)
+
+*Demo 4.2 — G4 (sw[0]=1): same injection is BLOCKED:*
+```
+U5EC2E7A1 ; K... ; B... ; L ; W0F1E2D3C4B5A69788796A5B4C3D2E1F0 -> W ok
+E   -> E 69C4E0D86A7B0430D8CDB78070B4C55A        (true KAT; injection had no effect)
+```
+
+Together these four screens are the complete Paper 1 + Paper 2 story on silicon:
+the cipher is correct, the read lock hides the key, the write attack defeats the
+Paper 1 lock, and the write-blocking lock defeats the attack. LED indicator is red
+while locked and green while unlocked. (Optional still-to-add: board photos of the
+red/green indicator for a figure.)
 
 ---
 
