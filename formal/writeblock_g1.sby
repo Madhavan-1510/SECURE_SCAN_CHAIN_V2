@@ -1,0 +1,22 @@
+[options]
+mode prove
+depth 12
+[engines]
+smtbmc z3
+[script]
+read -formal fv_writeblock.v
+read -formal aes_pcpi_def.v
+read -formal aes_core_def.v
+read -formal aes_sbox.v
+read -formal scan_chain.v
+read -formal scan_cell.v
+chparam -set DL 1 fv_writeblock
+prep -top fv_writeblock
+[files]
+formal/fv_writeblock.v
+RTL/aes_pcpi_defs.vh
+RTL/aes_pcpi_def.v
+RTL/aes_core_def.v
+RTL/aes_sbox.v
+RTL/scan_chain.v
+RTL/scan_cell.v
