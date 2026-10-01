@@ -127,19 +127,22 @@ sec1.push(new Table({ width:{size:9360,type:WidthType.DXA}, columnWidths:[4680,4
     authorCell(['[Second Author / Supervisor]','dept. of Electronics and Communication Engineering','Saveetha Engineering College','Chennai, India','second.author@example.com'])
   ]})]}));
 
-sec1.push(new Paragraph({spacing:{before:160, after:40}, indent:{firstLine:220}, alignment:AlignmentType.JUSTIFIED,
-  children:[ new TextRun({text:'Abstract', font:FONT, size:18, bold:true, italics:true}),
-    new TextRun({text:'—', font:FONT, size:18, bold:true}),
-    new TextRun({text:ABSTRACT, font:FONT, size:18, bold:true}) ] }));
-sec1.push(new Paragraph({spacing:{after:160}, indent:{firstLine:220}, alignment:AlignmentType.JUSTIFIED,
-  children:[ new TextRun({text:'Keywords', font:FONT, size:18, bold:true, italics:true}),
-    new TextRun({text:'—', font:FONT, size:18, bold:true}),
-    new TextRun({text:'scan chain security; design for testability; AES-128; RISC-V coprocessor; secure scan lock; hardware security; FPGA.', font:FONT, size:18, bold:true}) ] }));
-
 // ============ SECTION 2: body (two columns) ============
 const sec2 = [];
 const P = (t,o)=>sec2.push(body(t,o));
 const PL = (t,o)=>sec2.push(plain(t,o));
+
+// abstract + keywords now inside the two-column region
+sec2.push(new Paragraph({spacing:{before:160, after:40}, indent:{firstLine:220}, alignment:AlignmentType.JUSTIFIED,
+  children:[ new TextRun({text:'Abstract', font:FONT, size:18, bold:true, italics:true}),
+    new TextRun({text:'—', font:FONT, size:18, bold:true}),
+    new TextRun({text:ABSTRACT, font:FONT, size:18, bold:true}) ] }));
+sec2.push(new Paragraph({spacing:{after:160}, indent:{firstLine:220}, alignment:AlignmentType.JUSTIFIED,
+  children:[ new TextRun({text:'Keywords', font:FONT, size:18, bold:true, italics:true}),
+    new TextRun({text:'—', font:FONT, size:18, bold:true}),
+    new TextRun({text:'scan chain security; design for testability; AES-128; RISC-V coprocessor; secure scan lock; hardware security; FPGA.', font:FONT, size:18, bold:true}) ] }));
+
+
 
 // ---- I. INTRODUCTION (cite [1]-[6]) ----
 sec2.push(heading('I','Introduction'));
