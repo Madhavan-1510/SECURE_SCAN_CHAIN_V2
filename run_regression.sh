@@ -20,7 +20,7 @@ GATED="tb_scan_cell tb_scan_chain tb_aes_core tb_aes_pcpi tb_scan_attack tb_scan
 tb_double_encrypt_control tb_scan_resume tb_keystage_lock_scope tb_cpu_driven_aes \
 tb_scan_attack_harness tb_fpga_top tb_board_top tb_zeroize tb_attack_write_inject tb_sensitivity \
 tb_attack_bruteforce tb_lock_v2 tb_scan_lock_v2 tb_attack_modeswitch tb_attack_matrix \
-tb_attack_defenses tb_defense_equiv tb_def_functional tb_scan_resume_def tb_cpu_driven_aes_def tb_attack_top_def tb_testability_t1 tb_testability_t2"
+tb_attack_defenses tb_defense_equiv tb_def_functional tb_scan_resume_def tb_cpu_driven_aes_def tb_attack_top_def tb_testability_t1 tb_testability_t2 tb_board_top_def"
 [ $# -gt 0 ] && GATED="$*"
 
 run_one() {

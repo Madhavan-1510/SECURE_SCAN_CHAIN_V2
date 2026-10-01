@@ -423,6 +423,31 @@ Reading:
 
 Limit: fault detection shown at 10 representative sites with `force`/`release`, not an exhaustive 645-site sweep; T3 (Yosys+Fault/Atalanta) is still appendix-only.
 
+### 5k. Board demo -- live UART scan console on Spartan-7 (Icarus-verified RTL)
+
+A synthesizable top, `board_top_def.v`, puts both defenses on one bitstream: a
+G1 instance (DEFENSE_LEVEL=1) and a G4 instance (DEFENSE_LEVEL=4) sharing one
+`scan_lock_controller_v2`; `sw[0]` selects which the UART console drives. The
+console (`scan_uart_bridge.v` + `uart_rx.v`, reusing the existing `uart_tx.v`)
+is a PCPI master + scan driver; over 115200 8N1 you type S/R/W/K/B/E/U/L and
+read hex replies. No key/ciphertext debug tap is wired out (unlike Paper 1's
+`board_top.v`, F9); the only readback is the scan port.
+
+`tb_board_top_def.v` drives the real UART pins (bit-banged RX, sampled TX) and
+checks the replies -- **9/9 PASS, gated**:
+- out-of-reset locked; wrong code rejected; correct secret unlocks; relock.
+- K/B/E reproduces the NIST KAT `69c4e0d8..` through the console.
+- locked `R` is all zeros on BOTH G1 and G4 (Paper 1 read lock).
+- **G1 locked: inject `W`(EVIL) then `E` -> `50b58e80..` (write attack succeeds; same golden as s5a/s5h).**
+- **G4 locked: same sequence -> `E` returns the true KAT (write attack blocked).**
+- G4 unlocked: injection changes the ciphertext again (defense acts only while locked; authorised test access unaffected).
+
+So the whole Paper 1 vs Paper 2 story is reproducible on hardware from a serial
+terminal. Lock timers are ms-scale in the demo params; the production rule
+(`BOOT_DELAY_CYCLES >= LOCKOUT_CYCLES`, ~1e8) still applies. Build steps,
+command table and the demo script (`scripts/scan_console.py`) are in
+`docs/board_demo.md`. Not yet run on physical hardware or synthesized.
+
 ### 5a. A3 / A6 — independently verified, not just claimed
 
 `tb_attack_probe.v` was **re-run independently** (not just trusted from a
