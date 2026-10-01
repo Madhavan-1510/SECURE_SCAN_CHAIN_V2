@@ -59,6 +59,13 @@ function figure(file, widthIn, cap) {
         transformation: { width: Math.round(w*96), height: Math.round(h*96) } }) ] }),
     caption(cap) ];
 }
+function figJ(file, cap, aspect) {
+  const png = img(file); const w=COLW, h=w/aspect;
+  return [ new Paragraph({ alignment: AlignmentType.CENTER, spacing:{before:120, after:20},
+      children: [ new ImageRun({ type:'jpg', data: png,
+        transformation: { width: Math.round(w*96), height: Math.round(h*96) } }) ] }),
+    caption(cap) ];
+}
 function eqn(text, n) {
   return new Paragraph({ alignment: AlignmentType.CENTER, spacing:{before:80, after:80},
     tabStops:[{type:TabStopType.RIGHT, position: Math.round(COLW*1440)}],
@@ -251,6 +258,8 @@ P('The testability trade off was quantified by measuring, while locked, how many
 figure('fig_t1.png', COLW, 'Figure 5.  Readable and writable chain bits while locked; only the write blocking lock reaches zero and zero.').forEach(x=>sec2.push(x));
 
 P('The complete design was exercised on hardware through a serial console, and four demonstrations were captured. A known answer encryption returned the standard ciphertext, and an unlocked scan read exposed the key, the final round key, and the ciphertext; after relocking, the scan read returned all zeros. On the Paper 1 variant an injection while locked changed the ciphertext, confirming the write attack, while on the write blocking variant the identical injection returned the true known answer, confirming the block. A machine checked proof further established, by induction over all inputs, that the scan output of the write blocking lock is held at zero whenever the device is locked, giving a formal basis for the read confidentiality property.');
+figJ('board5.jpg','Figure 6.  Paper 1 lock, locked: a scan-injected key makes the seven-segment display read 90C5DFD7, the attacker ciphertext word. The write attack succeeds.', 1280/960).forEach(x=>sec2.push(x));
+figJ('board4.jpg','Figure 7.  Write-blocking lock, locked: the identical injection leaves the display at 70B4C55A, the true known-answer word. The write attack is blocked.', 1280/960).forEach(x=>sec2.push(x));
 
 // ---- V. CONCLUSION (~250 words) ----
 sec2.push(heading('V','Conclusion'));

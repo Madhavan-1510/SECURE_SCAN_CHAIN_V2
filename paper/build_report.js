@@ -43,6 +43,13 @@ function fig(file, cap, wIn){
   C.push(new Paragraph({alignment:AlignmentType.CENTER, spacing:{after:160},
     children:[ new TextRun({text:cap, font:FONT, size:18, italics:true}) ]}));
 }
+function figJ(file, cap, wIn, aspect) {
+  const w=wIn, h=w/aspect;
+  C.push(new Paragraph({alignment:AlignmentType.CENTER, spacing:{before:120,after:20},
+    children:[ new ImageRun({type:'jpg', data:img(file), transformation:{width:Math.round(w*96), height:Math.round(h*96)}}) ]}));
+  C.push(new Paragraph({alignment:AlignmentType.CENTER, spacing:{after:160},
+    children:[ new TextRun({text:cap, font:FONT, size:18, italics:true}) ]}));
+}
 function th(s){ return new TableCell({ shading:{type:ShadingType.CLEAR, fill:'D9E2F3'}, margins:{top:40,bottom:40,left:80,right:80},
   children:[ new Paragraph({children:[ new TextRun({text:s, font:FONT, size:18, bold:true}) ]}) ], width:{size:s.w,type:WidthType.DXA} }); }
 function tbl(widths, header, rows){
@@ -325,6 +332,15 @@ tbl([2100,1300,1300,1500,1560],["Configuration","LUT","FF","Fmax MHz","Writes bl
 fig("fig_overhead.png","Figure 7. Look-up table and flip-flop utilization across the four configurations.");
 h2("11.4 Live hardware demonstration");
 para("The complete design was programmed onto the Boolean Board and driven from a serial console, and four demonstrations were captured. First, a known-answer encryption returned the standard ciphertext 69C4E0D86A7B0430D8CDB78070B4C55A, and an unlocked scan read then exposed the key, the final round key, and the ciphertext in the stream, which is the read attack shown live. Second, after relocking, the same scan read returned all zeros, confirming the read lock. Third, on the Paper 1 variant an injection while locked produced a ciphertext different from the known answer, confirming the write attack succeeds. Fourth, on the write-blocking variant the identical injection returned the true known-answer ciphertext, confirming the write attack is blocked. The color indicator was red while locked and green while unlocked. These four screens constitute the complete argument on silicon: the cipher is correct, the read lock hides the key, the write attack defeats the earlier lock, and the write-blocking lock defeats the attack.");
+
+h2("11.5 Board photographs");
+para("The following photographs were taken on the Boolean Board during the live demonstration. In every image the color indicator reads red while the device is locked and green while unlocked, and the eight-digit display shows the low thirty two bits of the most recent ciphertext. The known-answer ciphertext ends in the word seven zero B four C five five A, which appears on the display as the two groups C five five A and seven zero B four.");
+figJ('board1.jpg', "Figure 8. Fail-safe locked at power-on: indicator red, display all zeros before any encryption.", 5.3, 1280/960);
+figJ('board2.jpg', "Figure 9. After the correct unlock code: indicator green (device unlocked), display idle at zero.", 3.1, 960/1280);
+figJ('board3.jpg', "Figure 10. Demo 1, unlocked: a correct encryption drives the display to 70B4C55A, the known-answer ciphertext word, confirming the cipher works.", 5.3, 1280/960);
+figJ('board5.jpg', "Figure 11. Demo 4, Paper 1 lock (G1), locked: a scan-injected key makes the display read 90C5DFD7, the low word of the attacker ciphertext 50b58e80...dfd7. The write attack succeeds.", 5.3, 1280/960);
+figJ('board4.jpg', "Figure 12. Demo 4, write-blocking lock (G4), locked: the identical injection leaves the display at 70B4C55A, the true known-answer word. The write attack is blocked.", 5.3, 1280/960);
+para("Figures 11 and 12 are the decisive pair: the device is locked in both, yet the Paper 1 lock lets the injected key change the output while the write-blocking lock holds the correct result. This is the central Paper 2 claim shown on silicon.");
 
 // ===================== CH 12: REPRODUCE =====================
 h1("12. How to Reproduce");

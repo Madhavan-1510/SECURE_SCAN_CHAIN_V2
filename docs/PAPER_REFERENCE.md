@@ -353,6 +353,14 @@ U5EC2E7A1 ; K... ; B... ; L ; W0F1E2D3C4B5A69788796A5B4C3D2E1F0 -> W ok
 E   -> E 69C4E0D86A7B0430D8CDB78070B4C55A        (true KAT; injection had no effect)
 ```
 
+**Board photographs (in `paper/figures/board/`, embedded in the report and paper):**
+- `board1.jpg` — locked at power-on: indicator RED, 7-seg `00000000`.
+- `board2.jpg` — unlocked: indicator GREEN, 7-seg `00000000`.
+- `board3.jpg` — Demo 1 unlocked: 7-seg `70B4C55A` (true KAT word), correct encryption.
+- `board5.jpg` — Demo 4 G1 locked: 7-seg `90C5DFD7` (attacker ciphertext `50b58e80...dfd7`), write attack succeeds.
+- `board4.jpg` / `board6.jpg` — Demo 4 G4 locked: 7-seg `70B4C55A` (true KAT), write attack blocked.
+The decisive figure is board5 vs board4: both locked, G1 shows `90C5DFD7`, G4 shows `70B4C55A`.
+
 Together these four screens are the complete Paper 1 + Paper 2 story on silicon:
 the cipher is correct, the read lock hides the key, the write attack defeats the
 Paper 1 lock, and the write-blocking lock defeats the attack. LED indicator is red
